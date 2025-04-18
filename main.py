@@ -3,7 +3,6 @@ import re
 import requests
 from playwright.sync_api import sync_playwright
 import os
-import time  # Per aggiungere una pausa (opzionale)
 
 # Configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -21,20 +20,20 @@ def estrai_sconto(testo):
 
 def scrape_xbox_deals():
     with sync_playwright() as p:
-        # Avvia il browser in modalità visibile per il debug (facoltativo)
+        # Avvia il browser
         browser = p.chromium.launch(headless=True)  # Usa headless=False se vuoi vedere il browser
         page = browser.new_page()
 
         # Carica la pagina
         page.goto("https://www.xbox.com/it-IT/games/browse/DynamicChannel.GameDeals")
-        
-        # Aggiungi attesa per caricare il DOM (opzionale)
-        page.wait_for_load_state('domcontentloaded')  # Aspetta che il DOM sia completamente caricato
 
-        # Aumenta il timeout a 30 secondi per aspettare l'elemento
+        # Aspetta che il DOM sia completamente caricato
+        page.wait_for_load_state('domcontentloaded')  # Aspetta che la pagina si carichi completamente
+        
+        # Aspetta che l'elemento di interesse sia presente, aumenta il timeout se necessario
         try:
             print("🔍 Attesa dell'elemento .gameDiv...")
-            page.wait_for_selector(".gameDiv", timeout=30000)  # Aumento il timeout a 30 secondi
+            page.wait_for_selector(".gameDiv", timeout=60000)  # Timeout aumentato a 60 secondi
             print("✅ Elemento .gameDiv trovato!")
         except Exception as e:
             print(f"❌ Errore: {str(e)}")
@@ -74,31 +73,4 @@ def scrape_xbox_deals():
         return items
 
 def update_gist(data):
-    url = f"https://api.github.com/gists/{GIST_ID}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-    payload = {
-        "files": {
-            GIST_FILENAME: {
-                "content": json.dumps(data, indent=2, ensure_ascii=False)
-            }
-        }
-    }
-
-    response = requests.patch(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        print("✅ Gist aggiornato con successo!")
-    else:
-        print("❌ Errore durante l'aggiornamento del Gist:")
-        print(response.text)
-
-if __name__ == "__main__":
-    print("🔍 Raccolta dati in corso...")
-    giochi = scrape_xbox_deals()
-    if giochi:
-        print(f"📦 Trovati {len(giochi)} giochi in offerta.")
-        update_gist(giochi)
-    else:
-        print("❌ Nessun gioco trovato. Controlla l'errore.")
+    url = f"https://api.github
