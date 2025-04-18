@@ -2,8 +2,8 @@ name: Aggiorna Gist con uscite giornaliere
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Ogni giorno alle 6:00 UTC
-  workflow_dispatch:     # Avvio manuale
+    - cron: "0 6 * * *"
+  workflow_dispatch:
 
 jobs:
   run:
@@ -26,5 +26,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
-        run: |
-          python main.py
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python main.py
