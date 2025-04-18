@@ -1,4 +1,4 @@
-name: Aggiorna Gist con offerte Xbox
+name: Aggiorna Gist con uscite giornaliere
 
 on:
   schedule:
