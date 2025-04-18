@@ -48,7 +48,7 @@ def arricchisci_con_trailer(media, tipo):
 
 def dettagli_serie(serie_id):
     """
-    Ottiene dettagli aggiuntivi di una serie TV: stato, numero stagioni, durata, network, cast
+    Ottiene dettagli aggiuntivi di una serie TV: stato, numero stagioni, network, cast
     """
     url = f"https://api.themoviedb.org/3/tv/{serie_id}"
     params = {"api_key": TMDB_API_KEY, "language": "it-IT"}
@@ -67,14 +67,9 @@ def dettagli_serie(serie_id):
         credits_data = credits_resp.json()
         cast = [m.get("name") for m in credits_data.get("cast", [])[:5]]  # primi 5 attori
 
-    # Gestisce il caso in cui 'episode_run_time' è vuoto o non presente
-    durata_minuti = data.get("episode_run_time")
-    durata_minuti = durata_minuti[0] if durata_minuti and len(durata_minuti) > 0 else None
-
     return {
         "stato": data.get("status"),
         "stagioni_totali": data.get("number_of_seasons"),
-        "durata_minuti": durata_minuti,
         "network": data.get("networks", [{}])[0].get("name") if data.get("networks") else None,
         "cast": cast
     }
