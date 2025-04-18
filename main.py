@@ -3,6 +3,7 @@ import re
 import requests
 from playwright.sync_api import sync_playwright
 import os
+import time  # Per aggiungere una pausa (opzionale)
 
 # Configuration
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -20,13 +21,30 @@ def estrai_sconto(testo):
 
 def scrape_xbox_deals():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # Avvia il browser in modalità visibile per il debug (facoltativo)
+        browser = p.chromium.launch(headless=True)  # Usa headless=False se vuoi vedere il browser
         page = browser.new_page()
+
+        # Carica la pagina
         page.goto("https://www.xbox.com/it-IT/games/browse/DynamicChannel.GameDeals")
-        page.wait_for_selector(".gameDiv", timeout=15000)
+        
+        # Aggiungi attesa per caricare il DOM (opzionale)
+        page.wait_for_load_state('domcontentloaded')  # Aspetta che il DOM sia completamente caricato
+
+        # Aumenta il timeout a 30 secondi per aspettare l'elemento
+        try:
+            print("🔍 Attesa dell'elemento .gameDiv...")
+            page.wait_for_selector(".gameDiv", timeout=30000)  # Aumento il timeout a 30 secondi
+            print("✅ Elemento .gameDiv trovato!")
+        except Exception as e:
+            print(f"❌ Errore: {str(e)}")
+            browser.close()
+            return []
 
         items = []
         game_cards = page.query_selector_all(".gameDiv")
+
+        print(f"📦 Trovati {len(game_cards)} schede di gioco.")
 
         for card in game_cards:
             title_el = card.query_selector(".gameTitle") or card.query_selector("h3")
@@ -37,7 +55,7 @@ def scrape_xbox_deals():
             image = image_el.get_attribute("src") if image_el else "N/A"
             price_text = price_el.inner_text().strip() if price_el else ""
 
-            # No free to play game
+            # Escludi giochi gratuiti
             if "gratuito" in price_text.lower() or "free" in price_text.lower():
                 continue
 
@@ -79,5 +97,8 @@ def update_gist(data):
 if __name__ == "__main__":
     print("🔍 Raccolta dati in corso...")
     giochi = scrape_xbox_deals()
-    print(f"📦 Trovati {len(giochi)} giochi in offerta.")
-    update_gist(giochi)
+    if giochi:
+        print(f"📦 Trovati {len(giochi)} giochi in offerta.")
+        update_gist(giochi)
+    else:
+        print("❌ Nessun gioco trovato. Controlla l'errore.")
