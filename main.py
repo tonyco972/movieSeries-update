@@ -1,16 +1,48 @@
 import json
-import requests
 import os
+import requests
+from bs4 import BeautifulSoup
 
-# Configuration
+# Configurazione
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GIST_ID = os.getenv("GIST_ID")
 GIST_FILENAME = "xbox_offerte.json"
-API_URL = "https://www.xbox-now.com/en/deal-list"  # URL per l'estrazione delle offerte
+XBOX_STORE_URL = "https://www.microsoft.com/it-it/store/deals/xbox"
+
+def recupera_offerte():
+    """
+    Recupera i giochi in offerta dal Microsoft Store.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    response = requests.get(XBOX_STORE_URL, headers=headers)
+    if response.status_code != 200:
+        print("❌ Errore nel recupero dei dati.")
+        return []
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    giochi = []
+
+    # Esempio di parsing: adattare in base alla struttura attuale del sito
+    for item in soup.select(".m-channel-placement-item"):
+        titolo = item.select_one(".c-subheading-6").get_text(strip=True)
+        prezzo_attuale = item.select_one(".c-price").get_text(strip=True)
+        prezzo_originale = item.select_one(".c-price-previous").get_text(strip=True) if item.select_one(".c-price-previous") else None
+        immagine = item.select_one("img")["src"] if item.select_one("img") else None
+
+        giochi.append({
+            "titolo": titolo,
+            "prezzo_attuale": prezzo_attuale,
+            "prezzo_originale": prezzo_originale,
+            "immagine": immagine
+        })
+
+    return giochi
 
 def aggiorna_gist(dati):
     """
-    Funzione per aggiornare il Gist su GitHub
+    Aggiorna il Gist su GitHub con i dati forniti.
     """
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
@@ -32,21 +64,9 @@ def aggiorna_gist(dati):
         print("❌ Errore durante l'aggiornamento del Gist:")
         print(response.text)
 
-def recupera_offerte():
-    """
-    Funzione per recuperare i giochi in offerta da Xbox Now
-    """
-    response = requests.get(API_URL)
-    if response.status_code == 200:
-        offerte = response.json()
-        return offerte
-    else:
-        print("❌ Errore nel recupero dei dati dalle offerte.")
-        return []
-
 def main():
     """
-    Funzione principale che gestisce il flusso
+    Funzione principale che gestisce il flusso.
     """
     print("🔍 Raccolta dati in corso...")
     giochi = recupera_offerte()
