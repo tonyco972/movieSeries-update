@@ -28,31 +28,60 @@ def ottieni_uscite(tipo):
         print(f"Errore TMDb ({tipo}):", r.text)
         return []
 
-def ottieni_generi():
-    generi = {}
-    for tipo in ["movie", "tv"]:
-        url = f"https://api.themoviedb.org/3/genre/{tipo}/list?language=it-IT&api_key={TMDB_API_KEY}"
-        r = requests.get(url)
-        if r.ok:
-            for g in r.json().get("genres", []):
-                generi[g["id"]] = g["name"]
-    return generi
-
-def arricchisci_con_trailer(media, tipo):
-    url = f"https://api.themoviedb.org/3/{tipo}/{media['id']}/videos?api_key={TMDB_API_KEY}"
-    r = requests.get(url)
+def ottieni_trailer(tipo, id_):
+    url = f"https://api.themoviedb.org/3/{tipo}/{id_}/videos"
+    params = {"api_key": TMDB_API_KEY}
+    r = requests.get(url, params=params)
     if r.ok:
         for v in r.json().get("results", []):
             if v["site"] == "YouTube" and v["type"] == "Trailer":
-                media["trailer"] = f"https://www.youtube.com/watch?v={v['key']}"
-                return media
-    media["trailer"] = None
-    return media
+                return f"https://www.youtube.com/watch?v={v['key']}"
+    return None
+
+def ottieni_cast(tipo, id_):
+    url = f"https://api.themoviedb.org/3/{tipo}/{id_}/credits"
+    params = {"api_key": TMDB_API_KEY}
+    r = requests.get(url, params=params)
+    if r.ok:
+        return [att["name"] for att in r.json().get("cast", [])[:5]]
+    return []
+
+def dettagli_serie(tv_id):
+    url = f"https://api.themoviedb.org/3/tv/{tv_id}?language=it-IT&api_key={TMDB_API_KEY}"
+    r = requests.get(url)
+    if r.ok:
+        data = r.json()
+        return {
+            "stato": data.get("status"),
+            "durata_minuti": data.get("episode_run_time", [None])[0],
+            "stagioni_totali": data.get("number_of_seasons"),
+            "network": data["networks"][0]["name"] if data.get("networks") else None
+        }
+    return {}
+
+def episodio_del_giorno(tv_id):
+    oggi = datetime.now().strftime("%Y-%m-%d")
+    url = f"https://api.themoviedb.org/3/tv/{tv_id}/season/1?language=it-IT&api_key={TMDB_API_KEY}"
+    r = requests.get(url)
+    if r.ok:
+        for season in range(1, 100):  # limite massimo stagioni
+            url_season = f"https://api.themoviedb.org/3/tv/{tv_id}/season/{season}?language=it-IT&api_key={TMDB_API_KEY}"
+            rs = requests.get(url_season)
+            if not rs.ok:
+                break
+            for ep in rs.json().get("episodes", []):
+                if ep.get("air_date") == oggi:
+                    return {
+                        "titolo_episodio": ep.get("name"),
+                        "descrizione_episodio": ep.get("overview"),
+                        "numero_stagione": ep.get("season_number"),
+                        "numero_episodio": ep.get("episode_number")
+                    }
+    return {}
 
 def prepara_json():
     film = ottieni_uscite("movie")
     serie = ottieni_uscite("tv")
-    generi = ottieni_generi()
     dati = []
 
     for item in film + serie:
@@ -60,27 +89,20 @@ def prepara_json():
         titolo = item.get("title") or item.get("name")
         descrizione = item.get("overview", "")
         locandina = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get("poster_path") else None
-        data_uscita = item.get("release_date") or item.get("first_air_date")
-        lingua = item.get("original_language", "")
-        voto = item.get("vote_average")
-        voti = item.get("vote_count")
-        id_tmdb = item.get("id")
-        genere = generi.get(item["genre_ids"][0], "Sconosciuto") if item.get("genre_ids") else "N/A"
-
-        item = arricchisci_con_trailer(item, tipo)
+        trailer = ottieni_trailer(tipo, item["id"])
+        cast = ottieni_cast(tipo, item["id"])
+        dettaglio = dettagli_serie(item["id"]) if tipo == "tv" else {}
+        episodio = episodio_del_giorno(item["id"]) if tipo == "tv" else {}
 
         dati.append({
             "titolo": titolo,
             "descrizione": descrizione,
             "locandina": locandina,
-            "trailer": item.get("trailer"),
-            "genere": genere,
-            "lingua_originale": lingua,
-            "media_voto": voto,
-            "numero_voti": voti,
-            "data_uscita": data_uscita,
+            "trailer": trailer,
             "tipo": "Film" if tipo == "movie" else "Serie TV",
-            "tmdb_url": f"https://www.themoviedb.org/{tipo}/{id_tmdb}"
+            "cast_principale": cast,
+            **dettaglio,
+            **episodio
         })
 
     return dati
