@@ -10,6 +10,10 @@ TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 GIST_FILENAME = "uscite_giornaliere.json"
 
 def ottieni_uscite(tipo):
+    """
+    Recupera le uscite di film o serie TV per oggi
+    tipo: 'movie' o 'tv'
+    """
     oggi = datetime.now().strftime("%Y-%m-%d")
     url = f"https://api.themoviedb.org/3/discover/{tipo}"
     params = {
@@ -28,58 +32,54 @@ def ottieni_uscite(tipo):
         print(f"Errore TMDb ({tipo}):", r.text)
         return []
 
-def ottieni_trailer(tipo, id_):
-    url = f"https://api.themoviedb.org/3/{tipo}/{id_}/videos"
+def arricchisci_con_trailer(media, tipo):
+    """
+    Recupera il trailer se disponibile
+    """
+    trailer_url = f"https://api.themoviedb.org/3/{tipo}/{media['id']}/videos"
     params = {"api_key": TMDB_API_KEY}
+    r = requests.get(trailer_url, params=params)
+    if r.status_code == 200:
+        for video in r.json().get("results", []):
+            if video["site"] == "YouTube" and video["type"] == "Trailer":
+                media["trailer"] = f"https://www.youtube.com/watch?v={video['key']}"
+                return media
+    media["trailer"] = None
+    return media
+
+def dettagli_serie(serie_id):
+    """
+    Ottiene dettagli aggiuntivi di una serie TV: stato, numero stagioni, durata, network, cast
+    """
+    url = f"https://api.themoviedb.org/3/tv/{serie_id}"
+    params = {"api_key": TMDB_API_KEY, "language": "it-IT"}
     r = requests.get(url, params=params)
-    if r.ok:
-        for v in r.json().get("results", []):
-            if v["site"] == "YouTube" and v["type"] == "Trailer":
-                return f"https://www.youtube.com/watch?v={v['key']}"
-    return None
+    if not r.ok:
+        print(f"❌ Errore nel recupero dettagli serie {serie_id}")
+        return {}
 
-def ottieni_cast(tipo, id_):
-    url = f"https://api.themoviedb.org/3/{tipo}/{id_}/credits"
-    params = {"api_key": TMDB_API_KEY}
-    r = requests.get(url, params=params)
-    if r.ok:
-        return [att["name"] for att in r.json().get("cast", [])[:5]]
-    return []
+    data = r.json()
 
-def dettagli_serie(tv_id):
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}?language=it-IT&api_key={TMDB_API_KEY}"
-    r = requests.get(url)
-    if r.ok:
-        data = r.json()
-        return {
-            "stato": data.get("status"),
-            "durata_minuti": data.get("episode_run_time", [None])[0],
-            "stagioni_totali": data.get("number_of_seasons"),
-            "network": data["networks"][0]["name"] if data.get("networks") else None
-        }
-    return {}
+    # Recupera il cast
+    credits_url = f"https://api.themoviedb.org/3/tv/{serie_id}/credits"
+    credits_resp = requests.get(credits_url, params={"api_key": TMDB_API_KEY})
+    cast = []
+    if credits_resp.ok:
+        credits_data = credits_resp.json()
+        cast = [m.get("name") for m in credits_data.get("cast", [])[:5]]  # primi 5 attori
 
-def episodio_del_giorno(tv_id):
-    oggi = datetime.now().strftime("%Y-%m-%d")
-    url = f"https://api.themoviedb.org/3/tv/{tv_id}/season/1?language=it-IT&api_key={TMDB_API_KEY}"
-    r = requests.get(url)
-    if r.ok:
-        for season in range(1, 100):  # limite massimo stagioni
-            url_season = f"https://api.themoviedb.org/3/tv/{tv_id}/season/{season}?language=it-IT&api_key={TMDB_API_KEY}"
-            rs = requests.get(url_season)
-            if not rs.ok:
-                break
-            for ep in rs.json().get("episodes", []):
-                if ep.get("air_date") == oggi:
-                    return {
-                        "titolo_episodio": ep.get("name"),
-                        "descrizione_episodio": ep.get("overview"),
-                        "numero_stagione": ep.get("season_number"),
-                        "numero_episodio": ep.get("episode_number")
-                    }
-    return {}
+    return {
+        "stato": data.get("status"),
+        "stagioni_totali": data.get("number_of_seasons"),
+        "durata_minuti": data.get("episode_run_time")[0] if data.get("episode_run_time") else None,
+        "network": data.get("networks", [{}])[0].get("name") if data.get("networks") else None,
+        "cast": cast
+    }
 
 def prepara_json():
+    """
+    Prepara i dati delle uscite di film e serie TV
+    """
     film = ottieni_uscite("movie")
     serie = ottieni_uscite("tv")
     dati = []
@@ -89,25 +89,33 @@ def prepara_json():
         titolo = item.get("title") or item.get("name")
         descrizione = item.get("overview", "")
         locandina = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get("poster_path") else None
-        trailer = ottieni_trailer(tipo, item["id"])
-        cast = ottieni_cast(tipo, item["id"])
-        dettaglio = dettagli_serie(item["id"]) if tipo == "tv" else {}
-        episodio = episodio_del_giorno(item["id"]) if tipo == "tv" else {}
+
+        item = arricchisci_con_trailer(item, tipo)
+
+        # Dettagli aggiuntivi per le serie TV
+        if tipo == "tv":
+            dettaglio = dettagli_serie(item["id"])
+            item.update(dettaglio)
 
         dati.append({
             "titolo": titolo,
             "descrizione": descrizione,
             "locandina": locandina,
-            "trailer": trailer,
+            "trailer": item.get("trailer"),
             "tipo": "Film" if tipo == "movie" else "Serie TV",
-            "cast_principale": cast,
-            **dettaglio,
-            **episodio
+            "stato": item.get("stato"),
+            "stagioni_totali": item.get("stagioni_totali"),
+            "durata_minuti": item.get("durata_minuti"),
+            "network": item.get("network"),
+            "cast": item.get("cast")
         })
 
     return dati
 
 def aggiorna_gist(dati):
+    """
+    Aggiorna il Gist con i dati JSON
+    """
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
