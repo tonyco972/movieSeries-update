@@ -1,57 +1,75 @@
+import requests
 import json
 import os
-import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
 
-# Configurazione
+# ENV
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GIST_ID = os.getenv("GIST_ID")
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 GIST_FILENAME = "uscite_giornaliere.json"
-DATA_ODIERNA = datetime.now().strftime("%d %B %Y")
 
-def recupera_uscite():
+def ottieni_uscite(tipo):
     """
-    Recupera i film e le serie TV in uscita oggi.
+    tipo: 'movie' o 'tv'
     """
-    # Esempio: utilizziamo Movieplayer per le serie TV
-    url = "https://movieplayer.it/streaming/ultime-uscite/"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
+    oggi = datetime.now().strftime("%Y-%m-%d")
+    url = f"https://api.themoviedb.org/3/discover/{tipo}"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "language": "it-IT",
+        "sort_by": "popularity.desc",
+        "primary_release_date.gte": oggi,
+        "primary_release_date.lte": oggi,
+        "region": "IT",
+        "with_original_language": "en|it"
     }
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        print("❌ Errore nel recupero dei dati.")
+    r = requests.get(url, params=params)
+    if r.status_code == 200:
+        return r.json().get("results", [])
+    else:
+        print(f"Errore TMDb ({tipo}):", r.text)
         return []
 
-    soup = BeautifulSoup(response.text, 'html.parser')
-    uscite = []
+def arricchisci_con_trailer(media, tipo):
+    """
+    Recupera il trailer se disponibile
+    """
+    trailer_url = f"https://api.themoviedb.org/3/{tipo}/{media['id']}/videos"
+    params = {"api_key": TMDB_API_KEY}
+    r = requests.get(trailer_url, params=params)
+    if r.status_code == 200:
+        for video in r.json().get("results", []):
+            if video["site"] == "YouTube" and video["type"] == "Trailer":
+                media["trailer"] = f"https://www.youtube.com/watch?v={video['key']}"
+                return media
+    media["trailer"] = None
+    return media
 
-    # Parsing degli elementi (adattare in base alla struttura attuale del sito)
-    for item in soup.select("div.scheda"):
-        titolo_elem = item.select_one("h2")
-        descrizione_elem = item.select_one("p")
-        immagine_elem = item.select_one("img")
-        trailer_elem = item.select_one("a[href*='trailer']")
+def prepara_json():
+    film = ottieni_uscite("movie")
+    serie = ottieni_uscite("tv")
+    dati = []
 
-        titolo = titolo_elem.get_text(strip=True) if titolo_elem else "Titolo non disponibile"
-        descrizione = descrizione_elem.get_text(strip=True) if descrizione_elem else "Descrizione non disponibile"
-        immagine = immagine_elem["src"] if immagine_elem else None
-        trailer = trailer_elem["href"] if trailer_elem else None
+    for item in film + serie:
+        tipo = "movie" if "title" in item else "tv"
+        titolo = item.get("title") or item.get("name")
+        descrizione = item.get("overview", "")
+        locandina = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get("poster_path") else None
 
-        uscite.append({
+        item = arricchisci_con_trailer(item, tipo)
+
+        dati.append({
             "titolo": titolo,
             "descrizione": descrizione,
-            "immagine": immagine,
-            "trailer": trailer
+            "locandina": locandina,
+            "trailer": item.get("trailer"),
+            "tipo": "Film" if tipo == "movie" else "Serie TV"
         })
 
-    return uscite
+    return dati
 
 def aggiorna_gist(dati):
-    """
-    Aggiorna il Gist su GitHub con i dati forniti.
-    """
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -64,25 +82,20 @@ def aggiorna_gist(dati):
             }
         }
     }
-
-    response = requests.patch(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        print("✅ Gist aggiornato con successo!")
+    r = requests.patch(url, headers=headers, json=payload)
+    if r.status_code == 200:
+        print("✅ Gist aggiornato con successo.")
     else:
-        print("❌ Errore durante l'aggiornamento del Gist:")
-        print(response.text)
+        print("❌ Errore aggiornamento gist:", r.text)
 
 def main():
-    """
-    Funzione principale che gestisce il flusso.
-    """
-    print(f"🔍 Raccolta dati in corso per il {DATA_ODIERNA}...")
-    uscite = recupera_uscite()
-    if uscite:
-        print(f"📦 Trovati {len(uscite)} titoli in uscita.")
-        aggiorna_gist(uscite)
+    print("🎬 Recupero delle uscite del giorno...")
+    dati = prepara_json()
+    if dati:
+        print(f"Trovati {len(dati)} elementi.")
+        aggiorna_gist(dati)
     else:
-        print("❌ Nessun titolo trovato. Controlla l'errore.")
+        print("Nessuna uscita trovata.")
 
 if __name__ == "__main__":
     main()
