@@ -1,75 +1,85 @@
+import os
 import requests
 import json
-import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# ENV
+# Configurazioni
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GIST_ID = os.getenv("GIST_ID")
-TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 GIST_FILENAME = "uscite_giornaliere.json"
 
-def ottieni_uscite(tipo):
-    """
-    tipo: 'movie' o 'tv'
-    """
-    oggi = datetime.now().strftime("%Y-%m-%d")
-    url = f"https://api.themoviedb.org/3/discover/{tipo}"
-    params = {
-        "api_key": TMDB_API_KEY,
-        "language": "it-IT",
-        "sort_by": "popularity.desc",
-        "primary_release_date.gte": oggi,
-        "primary_release_date.lte": oggi,
-        "region": "IT",
-        "with_original_language": "en|it"
-    }
-    r = requests.get(url, params=params)
-    if r.status_code == 200:
-        return r.json().get("results", [])
-    else:
-        print(f"Errore TMDb ({tipo}):", r.text)
-        return []
+BASE_URL = "https://api.themoviedb.org/3"
+HEADERS = {"Authorization": f"Bearer {TMDB_API_KEY}"}
+IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
-def arricchisci_con_trailer(media, tipo):
+# Calcola il periodo (oggi + 6 giorni)
+oggi = datetime.utcnow().date()
+fine = oggi + timedelta(days=6)
+oggi_str = oggi.strftime("%Y-%m-%d")
+fine_str = fine.strftime("%Y-%m-%d")
+periodo_testuale = f"dal {oggi.strftime('%d %B %Y')} al {fine.strftime('%d %B %Y')}"
+
+def get_genres_map():
     """
-    Recupera il trailer se disponibile
+    Restituisce un dizionario con gli ID dei generi e i loro nomi
     """
-    trailer_url = f"https://api.themoviedb.org/3/{tipo}/{media['id']}/videos"
-    params = {"api_key": TMDB_API_KEY}
-    r = requests.get(trailer_url, params=params)
-    if r.status_code == 200:
-        for video in r.json().get("results", []):
+    genres = {}
+    for tipo in ["movie", "tv"]:
+        url = f"{BASE_URL}/genre/{tipo}/list?language=it-IT"
+        response = requests.get(url, headers=HEADERS)
+        if response.ok:
+            for genre in response.json().get("genres", []):
+                genres[genre["id"]] = genre["name"]
+    return genres
+
+def get_trailer(item_id, tipo):
+    """
+    Restituisce l'URL del trailer YouTube se disponibile
+    """
+    url = f"{BASE_URL}/{tipo}/{item_id}/videos?language=it-IT"
+    response = requests.get(url, headers=HEADERS)
+    if response.ok:
+        for video in response.json().get("results", []):
             if video["site"] == "YouTube" and video["type"] == "Trailer":
-                media["trailer"] = f"https://www.youtube.com/watch?v={video['key']}"
-                return media
-    media["trailer"] = None
-    return media
+                return f"https://www.youtube.com/watch?v={video['key']}"
+    return None
 
-def prepara_json():
-    film = ottieni_uscite("movie")
-    serie = ottieni_uscite("tv")
-    dati = []
+def fetch_releases(tipo, genres_map):
+    """
+    Recupera i film o le serie TV in uscita nel periodo specificato
+    """
+    endpoint = "movie/upcoming" if tipo == "movie" else "tv/airing_today"
+    url = f"{BASE_URL}/discover/{tipo}?primary_release_date.gte={oggi_str}&primary_release_date.lte={fine_str}&language=it-IT&region=IT&sort_by=primary_release_date.asc"
+    response = requests.get(url, headers=HEADERS)
+    results = []
 
-    for item in film + serie:
-        tipo = "movie" if "title" in item else "tv"
-        titolo = item.get("title") or item.get("name")
-        descrizione = item.get("overview", "")
-        locandina = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get("poster_path") else None
+    if response.ok:
+        for item in response.json().get("results", []):
+            genres_ids = item.get("genre_ids", [])
+            genere = genres_map.get(genres_ids[0], "Sconosciuto") if genres_ids else "N/A"
+            results.append({
+                "titolo": item.get("title") or item.get("name"),
+                "titolo_originale": item.get("original_title") or item.get("original_name"),
+                "descrizione": item.get("overview"),
+                "genere": genere,
+                "lingua_originale": item.get("original_language"),
+                "data_uscita": item.get("release_date") or item.get("first_air_date"),
+                "media_voto": item.get("vote_average"),
+                "numero_voti": item.get("vote_count"),
+                "tipo": "Film" if tipo == "movie" else "Serie TV",
+                "stato": None,  # Può essere esteso con /tv/{id} se vuoi
+                "trailer": get_trailer(item["id"], tipo),
+                "locandina": f"{IMAGE_BASE}{item['poster_path']}" if item.get("poster_path") else None,
+                "tmdb_url": f"https://www.themoviedb.org/{tipo}/{item['id']}"
+            })
 
-        item = arricchisci_con_trailer(item, tipo)
-
-        dati.append({
-            "titolo": titolo,
-            "descrizione": descrizione,
-            "locandina": locandina,
-            "trailer": item.get("trailer"),
-            "tipo": "Film" if tipo == "movie" else "Serie TV"
-        })
-
-    return dati
+    return results
 
 def aggiorna_gist(dati):
+    """
+    Aggiorna il Gist con i dati JSON
+    """
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
@@ -82,20 +92,27 @@ def aggiorna_gist(dati):
             }
         }
     }
-    r = requests.patch(url, headers=headers, json=payload)
-    if r.status_code == 200:
-        print("✅ Gist aggiornato con successo.")
+
+    response = requests.patch(url, headers=headers, json=payload)
+    if response.status_code == 200:
+        print("✅ Gist aggiornato con successo!")
     else:
-        print("❌ Errore aggiornamento gist:", r.text)
+        print("❌ Errore durante l'aggiornamento del Gist:")
+        print(response.text)
 
 def main():
-    print("🎬 Recupero delle uscite del giorno...")
-    dati = prepara_json()
-    if dati:
-        print(f"Trovati {len(dati)} elementi.")
-        aggiorna_gist(dati)
-    else:
-        print("Nessuna uscita trovata.")
+    print(f"🎬 Raccolta delle uscite in programma {periodo_testuale}...")
+    genres_map = get_genres_map()
+    film = fetch_releases("movie", genres_map)
+    serie = fetch_releases("tv", genres_map)
+
+    dati = {
+        "periodo": periodo_testuale,
+        "film": film,
+        "serie_tv": serie
+    }
+
+    aggiorna_gist(dati)
 
 if __name__ == "__main__":
     main()
