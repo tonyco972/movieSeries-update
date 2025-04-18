@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-# ENV
+# Configurazioni
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GIST_ID = os.getenv("GIST_ID")
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
@@ -11,8 +11,7 @@ GIST_FILENAME = "uscite_giornaliere.json"
 
 def ottieni_uscite(tipo):
     """
-    Recupera le uscite di film o serie TV per oggi
-    tipo: 'movie' o 'tv'
+    Recupera le uscite per il tipo 'movie' o 'tv' nel giorno corrente.
     """
     oggi = datetime.now().strftime("%Y-%m-%d")
     url = f"https://api.themoviedb.org/3/discover/{tipo}"
@@ -68,18 +67,19 @@ def dettagli_serie(serie_id):
         credits_data = credits_resp.json()
         cast = [m.get("name") for m in credits_data.get("cast", [])[:5]]  # primi 5 attori
 
+    # Gestisce il caso in cui 'episode_run_time' è vuoto o non presente
+    durata_minuti = data.get("episode_run_time")
+    durata_minuti = durata_minuti[0] if durata_minuti and len(durata_minuti) > 0 else None
+
     return {
         "stato": data.get("status"),
         "stagioni_totali": data.get("number_of_seasons"),
-        "durata_minuti": data.get("episode_run_time")[0] if data.get("episode_run_time") else None,
+        "durata_minuti": durata_minuti,
         "network": data.get("networks", [{}])[0].get("name") if data.get("networks") else None,
         "cast": cast
     }
 
 def prepara_json():
-    """
-    Prepara i dati delle uscite di film e serie TV
-    """
     film = ottieni_uscite("movie")
     serie = ottieni_uscite("tv")
     dati = []
@@ -92,10 +92,7 @@ def prepara_json():
 
         item = arricchisci_con_trailer(item, tipo)
 
-        # Dettagli aggiuntivi per le serie TV
-        if tipo == "tv":
-            dettaglio = dettagli_serie(item["id"])
-            item.update(dettaglio)
+        dettaglio = dettagli_serie(item["id"]) if tipo == "tv" else {}
 
         dati.append({
             "titolo": titolo,
@@ -103,18 +100,14 @@ def prepara_json():
             "locandina": locandina,
             "trailer": item.get("trailer"),
             "tipo": "Film" if tipo == "movie" else "Serie TV",
-            "stato": item.get("stato"),
-            "stagioni_totali": item.get("stagioni_totali"),
-            "durata_minuti": item.get("durata_minuti"),
-            "network": item.get("network"),
-            "cast": item.get("cast")
+            **dettaglio
         })
 
     return dati
 
 def aggiorna_gist(dati):
     """
-    Aggiorna il Gist con i dati JSON
+    Funzione per aggiornare il Gist con il file JSON
     """
     url = f"https://api.github.com/gists/{GIST_ID}"
     headers = {
