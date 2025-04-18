@@ -2,43 +2,51 @@ import json
 import os
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 # Configurazione
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GIST_ID = os.getenv("GIST_ID")
-GIST_FILENAME = "xbox_offerte.json"
-XBOX_STORE_URL = "https://www.microsoft.com/it-it/store/deals/xbox"
+GIST_FILENAME = "uscite_giornaliere.json"
+DATA_ODIERNA = datetime.now().strftime("%d %B %Y")
 
-def recupera_offerte():
+def recupera_uscite():
     """
-    Recupera i giochi in offerta dal Microsoft Store.
+    Recupera i film e le serie TV in uscita oggi.
     """
+    # Esempio: utilizziamo Movieplayer per le serie TV
+    url = "https://movieplayer.it/streaming/ultime-uscite/"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
-    response = requests.get(XBOX_STORE_URL, headers=headers)
+    response = requests.get(url, headers=headers)
     if response.status_code != 200:
         print("❌ Errore nel recupero dei dati.")
         return []
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    giochi = []
+    uscite = []
 
-    # Esempio di parsing: adattare in base alla struttura attuale del sito
-    for item in soup.select(".m-channel-placement-item"):
-        titolo = item.select_one(".c-subheading-6").get_text(strip=True)
-        prezzo_attuale = item.select_one(".c-price").get_text(strip=True)
-        prezzo_originale = item.select_one(".c-price-previous").get_text(strip=True) if item.select_one(".c-price-previous") else None
-        immagine = item.select_one("img")["src"] if item.select_one("img") else None
+    # Parsing degli elementi (adattare in base alla struttura attuale del sito)
+    for item in soup.select("div.scheda"):
+        titolo_elem = item.select_one("h2")
+        descrizione_elem = item.select_one("p")
+        immagine_elem = item.select_one("img")
+        trailer_elem = item.select_one("a[href*='trailer']")
 
-        giochi.append({
+        titolo = titolo_elem.get_text(strip=True) if titolo_elem else "Titolo non disponibile"
+        descrizione = descrizione_elem.get_text(strip=True) if descrizione_elem else "Descrizione non disponibile"
+        immagine = immagine_elem["src"] if immagine_elem else None
+        trailer = trailer_elem["href"] if trailer_elem else None
+
+        uscite.append({
             "titolo": titolo,
-            "prezzo_attuale": prezzo_attuale,
-            "prezzo_originale": prezzo_originale,
-            "immagine": immagine
+            "descrizione": descrizione,
+            "immagine": immagine,
+            "trailer": trailer
         })
 
-    return giochi
+    return uscite
 
 def aggiorna_gist(dati):
     """
@@ -68,13 +76,13 @@ def main():
     """
     Funzione principale che gestisce il flusso.
     """
-    print("🔍 Raccolta dati in corso...")
-    giochi = recupera_offerte()
-    if giochi:
-        print(f"📦 Trovati {len(giochi)} giochi in offerta.")
-        aggiorna_gist(giochi)
+    print(f"🔍 Raccolta dati in corso per il {DATA_ODIERNA}...")
+    uscite = recupera_uscite()
+    if uscite:
+        print(f"📦 Trovati {len(uscite)} titoli in uscita.")
+        aggiorna_gist(uscite)
     else:
-        print("❌ Nessun gioco trovato. Controlla l'errore.")
+        print("❌ Nessun titolo trovato. Controlla l'errore.")
 
 if __name__ == "__main__":
     main()
