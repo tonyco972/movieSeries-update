@@ -23,6 +23,11 @@ jobs:
         run: |
           npm install
 
+      # Aggiungi un passo per scaricare i browser di Playwright
+      - name: Install Playwright browsers
+        run: |
+          npx playwright install
+
       # Esegui lo script Node.js
       - name: Run script
         run: node script.js
