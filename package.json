@@ -1,19 +1,13 @@
 {
-  "name": "xbox-game-deals",
+  "name": "xbox-game-deals-scraper",
   "version": "1.0.0",
-  "description": "",
+  "description": "Script per raccogliere le offerte dei giochi Xbox e aggiornare un Gist.",
   "main": "script.js",
   "scripts": {
     "start": "node script.js"
   },
   "dependencies": {
-    "axios": "^0.21.1",
-    "playwright": "^1.18.0"
-  },
-  "devDependencies": {},
-  "engines": {
-    "node": ">=16.0.0"
-  },
-  "author": "",
-  "license": "ISC"
+    "axios": "^1.6.7",
+    "playwright": "^1.43.1"
+  }
 }
