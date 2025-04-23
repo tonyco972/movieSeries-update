@@ -2,7 +2,7 @@ name: Aggiorna Gist con uscite giornaliere
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Esegui ogni giorno alle 06:00 UTC
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -12,21 +12,28 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # Step per configurare Node.js
+      # Aggiungi un passo per installare Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'  # Puoi cambiare la versione di Node.js se necessario
+          node-version: '16'  # Assicurati di avere la versione corretta di Node.js
 
-      # Step per installare le dipendenze
+      # Installa le dipendenze (axios e altre dipendenze necessarie)
       - name: Install dependencies
         run: |
-          npm install playwright fs
+          npm install
 
-      # Step per eseguire lo script Node.js
+      # Esegui lo script Node.js
       - name: Run script
+        run: node script.js
+
+      # Aggiungi un passo per caricare i dati nel Gist
+      - name: Update Gist
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          node script.js  # Assicurati che il file si chiami "script.js" o modificalo in base al nome che hai dato al file JS
+          curl -X PATCH \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -d "{\"files\": {\"games.json\": {\"content\": \"$(cat games.json)\"}}}" \
+            https://api.github.com/gists/$GIST_ID
