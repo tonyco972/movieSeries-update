@@ -1,33 +1,37 @@
-# 🎬 Uscite Film & Serie TV – Gist Automagico
-
-**Benvenuto!** 👋  
-Questo piccolo progetto si prende cura di una grande missione:  
-📆 Ogni giorno controlla **quali film e serie TV vengono rilasciati**  
-🍿 Raccoglie titolo, descrizione, locandina e (se disponibile) anche il trailer  
+🎬 Uscite Film & Serie TV – Gist Automagico
+Benvenuto! 👋
+Questo piccolo progetto si prende cura di una grande missione:
+📆 Ogni giorno controlla quali film e serie TV vengono rilasciati
+🍿 Raccoglie titolo, descrizione, locandina e (se disponibile) anche il trailer
 📤 E aggiorna un Gist GitHub con tutte le uscite del giorno in formato JSON!
 
-> Per i veri appassionati che vogliono essere sempre aggiornati, senza dover cercare ovunque! ❤️
+Per i veri appassionati che vogliono essere sempre aggiornati, senza dover cercare ovunque! ❤️
 
----
+🚀 Come funziona
+⏰ Una GitHub Action si attiva ogni giorno alle 06:00 UTC
 
-## 🚀 Come funziona
+🤖 Lo script interroga l’API di TMDb (The Movie Database)
 
-1. ⏰ Una GitHub Action si attiva ogni giorno alle **06:00 UTC**
-2. 🤖 Lo script interroga l’[API di TMDb (The Movie Database)](https://www.themoviedb.org/documentation/api)
-3. 🧠 Filtra **solo le uscite del giorno corrente** (film e serie TV)
-4. 📎 Estrae:
-   - Titolo
-   - Descrizione
-   - Locandina
-   - Trailer (se disponibile)
-   - Tipo (Film o Serie TV)
-5. ✨ E aggiorna un **Gist GitHub pubblico o privato** con tutte queste informazioni, in un file JSON pulito e leggibile.
+🧠 Filtra solo le uscite del giorno corrente (film e serie TV)
 
----
+📎 Estrae:
 
-## 📦 Esempio di Output JSON
+Titolo
 
-```json
+Descrizione
+
+Locandina
+
+Trailer (se disponibile)
+
+Tipo (Film o Serie TV)
+
+✨ E aggiorna un Gist GitHub pubblico o privato con tutte queste informazioni, in un file JSON pulito e leggibile.
+
+📦 Esempio di Output JSON
+json
+Copy
+Edit
 [
   {
     "titolo": "Inside Out 2",
@@ -44,39 +48,50 @@ Questo piccolo progetto si prende cura di una grande missione:
     "tipo": "Serie TV"
   }
 ]
-```
+🧪 Tecnologie usate
+🐍 Python 3.10
 
-## 🧪 Tecnologie usate
-- 🐍 Python 3.10
+🌍 TMDb API per ottenere dati precisi e affidabili
 
-- 🌍 TMDb API per ottenere dati precisi e affidabili
+⚙️ GitHub Actions per l’automazione giornaliera
 
-- ⚙️ GitHub Actions per l’automazione giornaliera
+💾 GitHub Gist per pubblicare i risultati
 
-- 💾 GitHub Gist per pubblicare i risultati
+🛠️ Personalizzabile per il tuo Gist e le tue preferenze
 
-- 🛠️ Come personalizzarlo
+🧑‍💻 Come personalizzarlo
+Se vuoi usarlo con il tuo Gist:
+Crea un Gist su GitHub (pubblico o privato).
 
-## Se vuoi usarlo con il tuo Gist:
+Ottieni il suo ID (presente nell’URL).
 
-- Crea un Gist su GitHub (pubblico o privato)
+Vai nella tua repo su GitHub.
 
-- Ottieni il suo ID (presente nell’URL)
+Aggiungi i seguenti segreti nella sezione GitHub Secrets:
 
-- Vai nella tua repo su GitHub
+GIST_ID: L'ID del tuo Gist.
 
-- Aggiungi i seguenti segreti:
+PERSONAL_GIST_TOKEN: Un GitHub token con accesso ai tuoi Gist.
 
-1 GIST_ID | L'ID del tuo Gist
-2 PERSONAL_GIST_TOKEN | Un GitHub token con accesso ai tuoi Gist
-3 TMDB_API_KEY | La tua chiave API da TMDb
+TMDB_API_KEY: La tua chiave API da TMDb.
 
-## ❤️ Idee per il futuro
- 
- - Esportare anche in formato Markdown/HTML
+🚀 Come avviare l'azione:
+Configura il tuo progetto:
+Dopo aver configurato i segreti, l’azione GitHub si attiverà automaticamente ogni giorno alle 06:00 UTC.
 
- - Aggiungere le piattaforme di streaming
+Automazione:
+L'azione eseguirà lo script Python per raccogliere i dati di TMDb, filtrarli per il giorno corrente, e infine aggiornerà il Gist con i nuovi film e serie TV.
 
- - Creare un sito web con tutte le uscite giornaliere in bella vista
+Gist aggiornato:
+Il file JSON generato sarà disponibile nel tuo Gist, pronto per essere utilizzato.
 
- Mandare notifiche Telegram?
+📱 Idee per il futuro
+Esportare anche in formato Markdown/HTML per avere una vista più bella e accessibile dei risultati.
+
+Aggiungere le piattaforme di streaming per mostrare dove è disponibile ogni film/serie TV.
+
+Creare un sito web con tutte le uscite giornaliere in bella vista.
+
+Mandare notifiche Telegram per avvisarti ogni volta che un nuovo aggiornamento viene caricato nel Gist.
+
+Con questo sistema, sarai sempre aggiornato sulle nuove uscite cinematografiche e televisive senza fare fatica. Buona visione! 🎥🍿
