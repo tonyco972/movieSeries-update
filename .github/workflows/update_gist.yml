@@ -39,20 +39,19 @@ jobs:
         run: |
           node script.js || { echo 'Script fallito'; exit 1; }
 
+      # Usa jq per rimuovere eventuali caratteri problematici e creare il file JSON pulito
+      - name: Sanitize JSON file
+        run: |
+          jq -c . < games.json > sanitized_games.json
+
       # Aggiorna il Gist con il contenuto del file JSON generato
       - name: Update Gist
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          # Usa jq per creare il contenuto JSON e rimuovere gli escape
-          jq -c . < games.json > temp_content.json
-
-          # Usa curl per caricare il file
+          CONTENT=$(cat sanitized_games.json)
           curl -X PATCH \
             -H "Authorization: token $GITHUB_TOKEN" \
-            -d @temp_content.json \
+            -d "{\"files\": {\"games.json\": {\"content\": \"$CONTENT\"}}}" \
             https://api.github.com/gists/$GIST_ID
-
-          # Rimuovi il file temporaneo dopo l'uso
-          rm temp_content.json
