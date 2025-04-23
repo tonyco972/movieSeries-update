@@ -45,12 +45,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          for PART in games_part_*.json; do
-            echo "Caricamento di $PART su Gist..."
-            CONTENT=$(cat $PART)
-            curl -X PATCH \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d "{\"files\":{\"games.json\":{\"content\":$(jq -Rs . < $PART)}}}" \
-              "https://api.github.com/gists/$GIST_ID"
-          done
+          # Unisci tutte le parti in un unico file
+          echo "Combinazione dei file in un unico JSON..."
+          node -e 'const fs = require("fs"); 
+            const parts = fs.readdirSync(".").filter(f => f.startsWith("games_part_"));
+            const allGames = [];
+            for (const part of parts) {
+              const games = JSON.parse(fs.readFileSync(part, "utf8"));
+              allGames.push(...games);
+            }
+            fs.writeFileSync("all_games.json", JSON.stringify(allGames));'
+          
+          echo "Caricamento del file combinato su Gist..."
+          # Crea un file temporaneo per il payload JSON
+          echo "{\"files\":{\"games.json\":{\"content\":$(cat all_games.json | jq -Rs .)}}}}" > payload.json
+          
+          # Usa il file payload per l'aggiornamento di Gist
+          curl -X PATCH \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data @payload.json \
+            "https://api.github.com/gists/$GIST_ID"
