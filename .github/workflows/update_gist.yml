@@ -12,27 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # Aggiungi un passo per aggiornare Node.js alla versione 18
+      # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'  # Aggiorna alla versione 18 di Node.js
+          node-version: '18'
 
-      # Installa le dipendenze (axios, playwright e altre)
-      - name: Install dependencies
-        run: |
-          npm install
-
-      # Aggiungi un passo per scaricare i browser di Playwright
-      - name: Install Playwright browsers
-        run: |
-          npx playwright install
-
-      # Aggiungi un passo per installare le dipendenze mancanti per Playwright
-      - name: Install missing dependencies
+      # Installa dipendenze di sistema mancanti per Playwright e jq
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            jq \
             libgtk-4-1 \
             libgraphene-1.0-0 \
             libwoff2dec1 \
@@ -69,17 +60,27 @@ jobs:
             libgles2 \
             libx264-160
 
+      # Installa le dipendenze Node.js
+      - name: Install npm dependencies
+        run: npm install
+
+      # Installa i browser Playwright
+      - name: Install Playwright browsers
+        run: npx playwright install
+
       # Esegui lo script Node.js
       - name: Run script
-        run: node script.js
+        run: |
+          node script.js || { echo 'Script fallito'; exit 1; }
 
-      # Aggiungi un passo per caricare i dati nel Gist
+      # Aggiorna il Gist con il contenuto del file JSON
       - name: Update Gist
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
+          CONTENT=$(jq -Rs . < games.json)
           curl -X PATCH \
             -H "Authorization: token $GITHUB_TOKEN" \
-            -d "{\"files\": {\"games.json\": {\"content\": \"$(cat games.json)\"}}}" \
+            -d "{\"files\": {\"games.json\": {\"content\": $CONTENT}}}" \
             https://api.github.com/gists/$GIST_ID
