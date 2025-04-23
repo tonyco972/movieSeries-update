@@ -12,11 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # Aggiungi un passo per installare Node.js
+      # Aggiungi un passo per aggiornare Node.js alla versione 18
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'  # Assicurati di avere la versione corretta di Node.js
+          node-version: '18'  # Aggiorna alla versione 18 di Node.js
 
       # Installa le dipendenze (axios, playwright e altre)
       - name: Install dependencies
@@ -27,6 +27,47 @@ jobs:
       - name: Install Playwright browsers
         run: |
           npx playwright install
+
+      # Aggiungi un passo per installare le dipendenze mancanti per Playwright
+      - name: Install missing dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-4-1 \
+            libgraphene-1.0-0 \
+            libwoff2dec1 \
+            libvpx5 \
+            libevent-2.1-7 \
+            libopus0 \
+            libgstallocators-1.0-0 \
+            libgstapp-1.0-0 \
+            libgstpbutils-1.0-0 \
+            libgstaudio-1.0-0 \
+            libgsttag-1.0-0 \
+            libgstvideo-1.0-0 \
+            libgstgl-1.0-0 \
+            libgstcodecparsers-1.0-0 \
+            libgstfft-1.0-0 \
+            libflite1 \
+            libflite-usenglish1 \
+            libflite-cmu-grapheme-lang1 \
+            libflite-cmu-grapheme-lex1 \
+            libflite-cmu-indic-lang1 \
+            libflite-cmu-indic-lex1 \
+            libflite-cmulex1 \
+            libflite-cmu-time-awb1 \
+            libflite-cmu-us-awb1 \
+            libflite-cmu-us-kal16 \
+            libflite-cmu-us-kal1 \
+            libflite-cmu-us-rms1 \
+            libflite-cmu-us-slt1 \
+            libavif16 \
+            libharfbuzz-icu0 \
+            libsecret-1-0 \
+            libhyphen0 \
+            libmanette-0.2-0 \
+            libgles2 \
+            libx264-160
 
       # Esegui lo script Node.js
       - name: Run script
