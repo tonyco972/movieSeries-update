@@ -34,30 +34,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install
 
-      # Esegui lo script Node.js per raccogliere i giochi
+      # Esegui lo script Node.js
       - name: Run script
         run: |
           node script.js || { echo 'Script fallito'; exit 1; }
 
-      # Carica i file partizionati nei Gist
-      - name: Upload parts to Gists
+      # Carica ogni parte in Gist
+      - name: Update Gist with game parts
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          # Usa un ciclo per caricare ogni parte
-          for i in {1..6}  #
-          do
-            FILE_NAME="games_part_${i}.json"
-            if [ -f "$FILE_NAME" ]; then
-              # Creiamo il JSON direttamente come stringa per il contenuto
-              CONTENT=$(cat "$FILE_NAME" | jq -c .)
-
-              # Carica il file nel Gist
-              RESPONSE=$(curl -X POST \
-                -H "Authorization: token $GITHUB_TOKEN" \
-                -d "{\"files\": {\"$FILE_NAME\": {\"content\": \"$CONTENT\"}}}" \
-                https://api.github.com/gists)
-
-              echo "Gist creato per $FILE_NAME"
-            fi
+          for PART in games_part_*.json; do
+            echo "Caricamento di $PART su Gist..."
+            curl -X PATCH \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -F "files[games.json]=@$PART" \
+              "https://api.github.com/gists/$GIST_ID"
           done
