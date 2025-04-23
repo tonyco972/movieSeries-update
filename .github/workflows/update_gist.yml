@@ -45,8 +45,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          # Usa jq per creare il contenuto JSON e salvalo in un file temporaneo
-          jq -Rs . < games.json > temp_content.json
+          # Usa jq per creare il contenuto JSON e rimuovere gli escape
+          jq -c . < games.json > temp_content.json
 
           # Usa curl per caricare il file
           curl -X PATCH \
