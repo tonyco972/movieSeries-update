@@ -2,6 +2,7 @@
 
 ![Aggiorna Gist con uscite giornaliere](https://github.com/tonyco972/xbox-game-deals/actions/workflows/update-gist.yml/badge.svg)
 
+
 🎬 Uscite Film & Serie TV – Gist Automagico
 Benvenuto! 👋
 Questo piccolo progetto si prende cura di una grande missione:
