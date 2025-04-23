@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '16'  # Assicurati di avere la versione corretta di Node.js
 
-      # Installa le dipendenze (axios e altre dipendenze necessarie)
+      # Installa le dipendenze (axios, playwright e altre)
       - name: Install dependencies
         run: |
           npm install
