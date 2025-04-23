@@ -18,10 +18,6 @@ jobs:
         with:
           node-version: '18'
 
-      # Installa solo jq per gestire JSON via shell
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       # Installa le dipendenze Playwright per il sistema
       - name: Install Playwright system dependencies
         run: npx playwright install-deps
@@ -39,30 +35,94 @@ jobs:
         run: |
           node script.js || { echo 'Script fallito'; exit 1; }
 
-      # Carica ogni parte in Gist
-      - name: Update Gist with game parts
+      # Carica i dati nel Gist usando Node.js
+      - name: Update Gist using Node.js
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          # Unisci tutte le parti in un unico file
-          echo "Combinazione dei file in un unico JSON..."
-          node -e 'const fs = require("fs"); 
-            const parts = fs.readdirSync(".").filter(f => f.startsWith("games_part_"));
-            const allGames = [];
-            for (const part of parts) {
-              const games = JSON.parse(fs.readFileSync(part, "utf8"));
-              allGames.push(...games);
+          cat > update_gist.js << 'EOF'
+          const fs = require('fs');
+          const https = require('https');
+          
+          // Funzione per aggiornare il Gist
+          async function updateGist() {
+            try {
+              // Combina tutti i file in un array unico
+              const filePattern = /^games_part_\d+\.json$/;
+              const files = fs.readdirSync('.').filter(f => filePattern.test(f));
+              
+              let allGames = [];
+              for (const file of files) {
+                console.log(`Elaborazione del file ${file}...`);
+                const content = fs.readFileSync(file, 'utf8');
+                const games = JSON.parse(content);
+                allGames = allGames.concat(games);
+              }
+              
+              console.log(`Totale giochi combinati: ${allGames.length}`);
+              
+              // Prepara il payload per l'API GitHub
+              const payload = {
+                files: {
+                  'games.json': {
+                    content: JSON.stringify(allGames)
+                  }
+                }
+              };
+              
+              // Invia la richiesta all'API
+              const options = {
+                hostname: 'api.github.com',
+                path: `/gists/${process.env.GIST_ID}`,
+                method: 'PATCH',
+                headers: {
+                  'User-Agent': 'Xbox-Game-Deals-Action',
+                  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/vnd.github.v3+json'
+                }
+              };
+              
+              return new Promise((resolve, reject) => {
+                const req = https.request(options, (res) => {
+                  let data = '';
+                  
+                  res.on('data', (chunk) => {
+                    data += chunk;
+                  });
+                  
+                  res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                      console.log('Gist aggiornato correttamente!');
+                      console.log(`Risposta: ${data}`);
+                      resolve();
+                    } else {
+                      console.error(`Errore nella richiesta: ${res.statusCode}`);
+                      console.error(`Risposta: ${data}`);
+                      reject(new Error(`HTTP Error: ${res.statusCode}`));
+                    }
+                  });
+                });
+                
+                req.on('error', (error) => {
+                  console.error(`Errore nella richiesta: ${error.message}`);
+                  reject(error);
+                });
+                
+                req.write(JSON.stringify(payload));
+                req.end();
+              });
+            } catch (error) {
+              console.error(`Errore: ${error.message}`);
+              throw error;
             }
-            fs.writeFileSync("all_games.json", JSON.stringify(allGames));'
+          }
           
-          echo "Caricamento del file combinato su Gist..."
-          # Crea un file temporaneo per il payload JSON
-          echo "{\"files\":{\"games.json\":{\"content\":$(cat all_games.json | jq -Rs .)}}}}" > payload.json
+          updateGist().catch(error => {
+            console.error(`Errore fatale: ${error}`);
+            process.exit(1);
+          });
+          EOF
           
-          # Usa il file payload per l'aggiornamento di Gist
-          curl -X PATCH \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data @payload.json \
-            "https://api.github.com/gists/$GIST_ID"
+          node update_gist.js
