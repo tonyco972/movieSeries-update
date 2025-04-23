@@ -41,8 +41,16 @@ const { chromium } = require('playwright');
     });
   });
 
-  fs.writeFileSync('games.json', JSON.stringify(games, null, 2));
-  console.log(`✅ Salvati ${games.length} giochi in games.json`);
+  // Controlla il formato dei dati
+  console.log(games);
+
+  // Scrivi i dati nel file JSON
+  try {
+    fs.writeFileSync('games.json', JSON.stringify(games, null, 2));
+    console.log(`✅ Salvati ${games.length} giochi in games.json`);
+  } catch (error) {
+    console.error('Errore nella scrittura del file JSON:', error);
+  }
 
   await browser.close();
 })();
