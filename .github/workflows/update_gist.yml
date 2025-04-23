@@ -45,8 +45,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          CONTENT=$(jq -Rs . < games.json)
+          # Usa jq per creare il contenuto JSON e salvalo in un file temporaneo
+          jq -Rs . < games.json > temp_content.json
+
+          # Usa curl per caricare il file
           curl -X PATCH \
             -H "Authorization: token $GITHUB_TOKEN" \
-            -d "{\"files\": {\"games.json\": {\"content\": $CONTENT}}}" \
+            -d @temp_content.json \
             https://api.github.com/gists/$GIST_ID
+
+          # Rimuovi il file temporaneo dopo l'uso
+          rm temp_content.json
