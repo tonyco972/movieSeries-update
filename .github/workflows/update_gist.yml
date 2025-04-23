@@ -50,8 +50,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          CONTENT=$(cat sanitized_games.json)
           curl -X PATCH \
             -H "Authorization: token $GITHUB_TOKEN" \
-            -d "{\"files\": {\"games.json\": {\"content\": \"$CONTENT\"}}}" \
+            -F "files[games.json]@sanitized_games.json" \
             https://api.github.com/gists/$GIST_ID
