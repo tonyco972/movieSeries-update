@@ -34,23 +34,34 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install
 
-      # Esegui lo script Node.js
+      # Esegui lo script Node.js per raccogliere i giochi
       - name: Run script
         run: |
           node script.js || { echo 'Script fallito'; exit 1; }
 
-      # Usa jq per rimuovere eventuali caratteri problematici e creare il file JSON pulito
-      - name: Sanitize JSON file
-        run: |
-          jq -c . < games.json > sanitized_games.json
-
-      # Aggiorna il Gist con il contenuto del file JSON generato
-      - name: Update Gist
+      # Carica i file partizionati nei Gist
+      - name: Upload parts to Gists
         env:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
-          GIST_ID: ${{ secrets.GIST_ID }}
         run: |
-          curl -X PATCH \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -F "files[games.json]@sanitized_games.json" \
-            https://api.github.com/gists/$GIST_ID
+          # Usa un ciclo per caricare ogni parte
+          for i in {1..5}  # Assumendo che ci siano massimo 5 file da caricare (adatta questo intervallo)
+          do
+            FILE_NAME="games_part_${i}.json"
+            if [ -f "$FILE_NAME" ]; then
+              # Crea un nuovo Gist per ogni parte
+              RESPONSE=$(curl -X POST \
+                -H "Authorization: token $GITHUB_TOKEN" \
+                -d @- https://api.github.com/gists <<EOF
+                {
+                  "files": {
+                    "$FILE_NAME": {
+                      "content": "$(cat $FILE_NAME)"
+                    }
+                  }
+                }
+                EOF
+              )
+              echo "Gist creato per $FILE_NAME"
+            fi
+          done
