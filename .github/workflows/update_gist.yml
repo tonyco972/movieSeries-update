@@ -45,7 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PERSONAL_GIST_TOKEN }}
         run: |
           # Usa un ciclo per caricare ogni parte
-          for i in {1..3}  # Assumendo che ci siano 3 file da caricare (adatta questo intervallo)
+          for i in {1..6}  #
           do
             FILE_NAME="games_part_${i}.json"
             if [ -f "$FILE_NAME" ]; then
