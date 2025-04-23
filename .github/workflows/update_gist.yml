@@ -47,8 +47,10 @@ jobs:
         run: |
           for PART in games_part_*.json; do
             echo "Caricamento di $PART su Gist..."
+            CONTENT=$(cat $PART)
             curl -X PATCH \
               -H "Authorization: token $GITHUB_TOKEN" \
-              -F "files[games.json]=@$PART" \
+              -H "Content-Type: application/json" \
+              -d "{\"files\":{\"games.json\":{\"content\":$(jq -Rs . < $PART)}}}" \
               "https://api.github.com/gists/$GIST_ID"
           done
