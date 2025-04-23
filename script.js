@@ -1,14 +1,4 @@
 const fs = require('fs');
-
-// Funzione per suddividere un array in più parti
-function splitArray(array, chunkSize) {
-  const result = [];
-  for (let i = 0; i < array.length; i += chunkSize) {
-    result.push(array.slice(i, i + chunkSize));
-  }
-  return result;
-}
-
 const { chromium } = require('playwright');
 
 (async () => {
@@ -53,15 +43,16 @@ const { chromium } = require('playwright');
 
   console.log(`✅ Salvati ${games.length} giochi in games.json`);
 
-  // Dividi l'array in più parti di 1000 giochi ciascuna
-  const gameChunks = splitArray(games, 1000);
-
-  // Salva ogni parte come file separato
-  gameChunks.forEach((chunk, index) => {
-    const filename = `games_part_${index + 1}.json`;
-    fs.writeFileSync(filename, JSON.stringify(chunk, null, 2));
-    console.log(`✅ Salvata parte ${index + 1} in ${filename}`);
-  });
+  // Dividi i giochi in parti da 500
+  const chunkSize = 500;
+  for (let i = 0; i < games.length; i += chunkSize) {
+    const chunk = games.slice(i, i + chunkSize);
+    const partNumber = Math.floor(i / chunkSize) + 1;
+    const fileName = `games_part_${partNumber}.json`;
+    
+    fs.writeFileSync(fileName, JSON.stringify(chunk, null, 2));
+    console.log(`✅ Salvata parte ${partNumber} in ${fileName}`);
+  }
 
   await browser.close();
 })();
